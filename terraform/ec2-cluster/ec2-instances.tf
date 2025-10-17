@@ -1,3 +1,5 @@
+# EC2 cluster resources (cleaned and single HCL file)
+
 # Key Pair (if specified)
 resource "aws_key_pair" "cluster_key_pair" {
   count = var.key_pair_name != "" ? 0 : 1
@@ -8,9 +10,17 @@ resource "aws_key_pair" "cluster_key_pair" {
   tags = var.tags
 }
 
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
+# IAM Role for EC2 instances
+resource "aws_iam_role" "ec2_role" {
+  name = "${var.cluster_name}-ec2-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action    = "sts:AssumeRole",
+        Effect    = "Allow",
+        Principal = { Service = "ec2.amazonaws.com" }
       }
     ]
   })
@@ -31,16 +41,33 @@ resource "aws_iam_role_policy" "ec2_policy" {
   name = "${var.cluster_name}-ec2-policy"
   role = aws_iam_role.ec2_role.id
 
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        Resource = "*"
+      },
+      {
+        Effect = "Allow",
+        Action = [
           "ssm:SendCommand",
-          "ssm:GetCommandInvocation"
-        ]
+          "ssm:GetCommandInvocation",
+          "ssm:ListCommandInvocations",
+          "ssm:ListCommands"
+        ],
         Resource = "*"
       }
     ]
   })
 }
 
-# Attach SSM policy to role
+# Attach AWS managed SSM policy to the role (so instances can be managed via SSM)
 resource "aws_iam_role_policy_attachment" "ssm_policy" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
@@ -51,7 +78,7 @@ resource "aws_launch_template" "cluster_template" {
   name_prefix   = "${var.cluster_name}-template"
   image_id      = data.aws_ami.amazon_linux.id
   instance_type = var.instance_type
-  key_name      = var.key_pair_name != "" ? var.key_pair_name : aws_key_pair.cluster_key_pair[0].key_name
+  key_name      = var.key_pair_name != "" ? var.key_pair_name : (length(aws_key_pair.cluster_key_pair) > 0 ? aws_key_pair.cluster_key_pair[0].key_name : "")
 
   vpc_security_group_ids = [aws_security_group.cluster_sg.id]
 
@@ -76,10 +103,10 @@ resource "aws_launch_template" "cluster_template" {
 
 # Auto Scaling Group
 resource "aws_autoscaling_group" "cluster_asg" {
-  name                = "${var.cluster_name}-asg"
-  vpc_zone_identifier = aws_subnet.public_subnets[*].id
-  target_group_arns   = [aws_lb_target_group.cluster_tg.arn]
-  health_check_type   = "ELB"
+  name                      = "${var.cluster_name}-asg"
+  vpc_zone_identifier       = aws_subnet.public_subnets[*].id
+  target_group_arns         = [aws_lb_target_group.cluster_tg.arn]
+  health_check_type         = "ELB"
   health_check_grace_period = 300
 
   min_size         = var.min_size
