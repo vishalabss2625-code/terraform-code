@@ -63,7 +63,7 @@ output "cluster_url" {
 # Instructions for managing the cluster
 output "cluster_management_instructions" {
   description = "Instructions for managing the EC2 cluster"
-  value = <<-EOT
+  value       = <<-EOT
     Your EC2 cluster has been created successfully!
     
     Access your cluster:
