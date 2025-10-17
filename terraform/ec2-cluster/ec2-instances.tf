@@ -28,23 +28,7 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 
 # IAM Policy for EC2 instances (CloudWatch, SSM access)
 resource "aws_iam_role_policy" "ec2_policy" {
-  name = "${var.cluster_name}-ec2-policy"
-  role = awsAmazonSSMManagedInstanceCore"
-}
 
-# Launch Template
-resourids = [aws_security_group.cluster_sg.id]
-
-  iam_instance_profile {
-    name = aws_iam_instance_profile.ec2_profile.name
-  }
-
-  user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    cluster_name = var.cluster_name
-    app_port     = var.app_port
-  }))
-
-  tag_specifications {
     resource_type = "instance"
     tags = merge(var.tags, {
       Name = "${var.cluster_name}-instance"
