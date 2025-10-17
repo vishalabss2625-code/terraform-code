@@ -570,3 +570,5 @@ This project is for educational and demonstration purposes.
 **Last Updated:** October 17, 2025
 
 🚀 **Happy Kubernetes Learning!**
+#   t e r r a f o r m - c o d e  
+ 
